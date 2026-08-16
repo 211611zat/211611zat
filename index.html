@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🍅 方形番茄钟</title>
+    <style>
+        /* ---------- 全局重置 ---------- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0f;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            margin: 0;
+        }
+
+        /* ========================================
+                  核心：方形框架 (大圆角卡片)
+                  ======================================== */
+        .app-card {
+            width: 100%;
+            max-width: 420px;
+            aspect-ratio: 1 / 1.2;
+            background: #14141e;
+            border-radius: 40px;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            padding: 28px 22px 22px 22px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            transition: background 0.6s ease;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .app-card.tomato-mode {
+            background: #16162a;
+        }
+        .app-card.clock-mode {
+            background: #0d0d14;
+        }
+
+        /* ---------- 顶部标题 ---------- */
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 6px;
+            flex-shrink: 0;
+            min-height: 28px;
+            position: relative;
+            z-index: 5;
+        }
+        .card-header .title {
+            color: rgba(255, 255, 255, 0.25);
+            font-size: 0.7rem;
+            letter-spacing: 3px;
+            font-weight: 300;
+        }
+        .card-header .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: none;
+            transition: 0.3s;
+            position: relative;
+        }
+
+        /* ---------- 视图容器 ---------- */
+        .view-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            position: relative;
+        }
+
+        .view {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+            justify-content: center;
+        }
+        .view.active {
+            display: flex;
+        }
+
+        /* ========================================
+                   视图1: 番茄钟 (Tomato)
+                   ======================================== */
+        .tomato-view .canvas-wrapper {
+            position: relative;
+            width: 200px;
+            height: 200px;
+            margin-bottom: 10px;
+        }
+        #canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background: transparent;
+        }
+
+        .time-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 2.8rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            font-variant-numeric: tabular-nums;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.05);
+            pointer-events: none;
+        }
+
+        .time-picker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin: 8px 0 16px 0;
+            flex-wrap: wrap;
+        }
+
+        .time-picker .preset-btn {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            color: rgba(255, 255, 255, 0.6);
+            padding: 6px 14px;
+            border-radius: 30px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            touch-action: manipulation;
+        }
+        .time-picker .preset-btn:active {
+            transform: scale(0.92);
+        }
+        .time-picker .preset-btn.active {
+            background: #4CAF50;
+            border-color: #4CAF50;
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+        }
+
+        .time-picker .adj-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.03);
+            color: #fff;
+            font-size: 1.2rem;
+            font-weight: 300;
+            cursor: pointer;
+            transition: 0.15s;
+            touch-action: manipulation;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .time-picker .adj-btn:active {
+            background: rgba(255, 255, 255, 0.12);
+            transform: scale(0.9);
+        }
+
+        .time-picker .minute-label {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.85rem;
+            font-weight: 300;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 16px;
+            margin-top: 4px;
+        }
+        .action-buttons button {
+            padding: 12px 36px;
+            border-radius: 40px;
+            border: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: 0.15s;
+            touch-action: manipulation;
+            letter-spacing: 1px;
+        }
+        .action-buttons button:active {
+            transform: scale(0.94);
+        }
+        #startBtn {
+            background: #4CAF50;
+            color: #fff;
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.25);
+        }
+        #resetBtn {
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .stats-mini {
+            margin-top: 14px;
+            color: rgba(255, 255, 255, 0.15);
+            font-size: 0.7rem;
+            letter-spacing: 1px;
+        }
+        .stats-mini span {
+            color: #ffd54f;
+        }
+
+        /* ========================================
+                   视图2: 数字时钟
+                   ======================================== */
+        .clock-view .clock-digits {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            line-height: 1.2;
+        }
+
+        .clock-view .clock-hm {
+            font-family: 'Courier New', monospace;
+            font-weight: 700;
+            color: #e0e0e0;
+            font-size: clamp(4rem, 22vw, 6rem);
+            letter-spacing: 6px;
+            text-shadow: 0 0 40px rgba(100, 200, 255, 0.05);
+            white-space: nowrap;
+            padding: 0 4px;
+        }
+
+        .clock-view .clock-sec {
+            font-family: 'Courier New', monospace;
+            font-weight: 300;
+            color: rgba(255, 255, 255, 0.35);
+            font-size: clamp(2rem, 10vw, 3.2rem);
+            letter-spacing: 4px;
+            margin-top: 6px;
+            text-shadow: 0 0 20px rgba(100, 200, 255, 0.03);
+            white-space: nowrap;
+        }
+
+        .clock-view .clock-date {
+            margin-top: 20px;
+            color: rgba(255, 255, 255, 0.12);
+            font-size: 2.5vw;
+            letter-spacing: 6px;
+            font-weight: 300;
+        }
+        .clock-view .clock-icon {
+            font-size: 12vw;
+            opacity: 0.03;
+            position: absolute;
+            right: 10%;
+            bottom: 10%;
+            pointer-events: none;
+        }
+
+        /* ========================================
+                   🆕 可拖动的悬浮选择按钮 (修复点击/拖动冲突)
+                   ======================================== */
+        .float-menu-btn {
+            position: absolute;
+            top: 52px;
+            right: 22px;
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.8rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            cursor: grab;
+            z-index: 100;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            touch-action: none;
+            transition: box-shadow 0.2s;
+            line-height: 1.2;
+            padding: 0;
+        }
+        .float-menu-btn:active {
+            cursor: grabbing;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+            background: rgba(255, 255, 255, 0.14);
+        }
+        .float-menu-btn .icon-text {
+            font-size: 1.1rem;
+        }
+        .float-menu-btn .sub-text {
+            font-size: 0.4rem;
+            opacity: 0.4;
+            margin-top: -2px;
+        }
+
+        /* ---------- 底部弹出菜单 ---------- */
+        .menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            z-index: 999;
+            display: none;
+            justify-content: center;
+            align-items: flex-end;
+            padding: 30px;
+            animation: fadeIn 0.25s ease;
+        }
+        .menu-overlay.open {
+            display: flex;
+        }
+
+        .menu-sheet {
+            background: #1c1c2a;
+            border-radius: 32px 32px 24px 24px;
+            width: 100%;
+            max-width: 380px;
+            padding: 18px 10px 24px 10px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            animation: slideUp 0.3s ease;
+        }
+
+        .menu-sheet .menu-title {
+            color: rgba(255, 255, 255, 0.2);
+            font-size: 0.7rem;
+            text-align: center;
+            letter-spacing: 4px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            margin-bottom: 8px;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px 20px;
+            border-radius: 18px;
+            color: #fff;
+            font-size: 1.1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.15s;
+            touch-action: manipulation;
+            margin: 2px 0;
+        }
+        .menu-item:active {
+            background: rgba(255, 255, 255, 0.06);
+            transform: scale(0.98);
+        }
+        .menu-item .icon {
+            font-size: 1.6rem;
+        }
+        .menu-item .desc {
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.2);
+            font-weight: 400;
+        }
+
+        .menu-close-btn {
+            width: 100%;
+            text-align: center;
+            padding: 14px 0;
+            margin-top: 6px;
+            color: rgba(255, 255, 255, 0.2);
+            font-size: 0.8rem;
+            cursor: pointer;
+            border-top: 1px solid rgba(255, 255, 255, 0.03);
+        }
+        .menu-close-btn:active {
+            color: #fff;
+        }
+
+        /* ---------- 动画 ---------- */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        @keyframes slideUp {
+            from {
+                transform: translateY(40px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== 方形卡片容器 ===== -->
+    <div class="app-card tomato-mode" id="appCard">
+
+        <!-- 顶栏装饰 -->
+        <div class="card-header">
+            <span class="title" id="headerTitle">🍅 专注工作台</span>
+            <span class="status-dot" id="statusDot"></span>
+        </div>
+
+        <!-- ===== 视图容器 ===== -->
+        <div class="view-container">
+
+            <!-- 视图1: 番茄钟 -->
+            <div id="tomatoView" class="view tomato-view active">
+                <div class="canvas-wrapper">
+                    <canvas id="canvas" width="300" height="300"></canvas>
+                    <div class="time-display" id="timerDisplay">25:00</div>
+                </div>
+
+                <div class="time-picker">
+                    <button class="adj-btn" id="minusBtn">−</button>
+                    <span class="minute-label" id="minuteLabel">25 分</span>
+                    <button class="adj-btn" id="plusBtn">+</button>
+
+                    <button class="preset-btn" data-min="5">5m</button>
+                    <button class="preset-btn active" data-min="25">25m</button>
+                    <button class="preset-btn" data-min="30">30m</button>
+                    <button class="preset-btn" data-min="45">45m</button>
+                </div>
+
+                <div class="action-buttons">
+                    <button id="startBtn">▶ 开始</button>
+                    <button id="resetBtn">↺ 重置</button>
+                </div>
+
+                <div class="stats-mini">🍅 今日完成 <span id="countDisplay">0</span> 个</div>
+            </div>
+
+            <!-- 视图2: 数字时钟 -->
+            <div id="clockView" class="view clock-view">
+                <div class="clock-digits">
+                    <div class="clock-hm" id="clockHM">00:00</div>
+                    <div class="clock-sec" id="clockSec">00</div>
+                </div>
+                <div class="clock-date" id="clockDate">2026.08.17 周一</div>
+                <div class="clock-icon">⏳</div>
+            </div>
+        </div>
+
+        <!-- ===== 🆕 可拖动的悬浮选择按钮 (修复版) ===== -->
+        <div class="float-menu-btn" id="menuToggle">
+            <span class="icon-text">☰</span>
+            <span class="sub-text">选择</span>
+        </div>
+    </div>
+
+    <!-- 底部弹出菜单 -->
+    <div class="menu-overlay" id="menuOverlay">
+        <div class="menu-sheet">
+            <div class="menu-title">— 切换模式 —</div>
+
+            <div class="menu-item" data-view="tomato">
+                <span class="icon">🍅</span>
+                <div>
+                    <div>番茄钟</div>
+                    <div class="desc">自定义倒计时 · 圆环进度</div>
+                </div>
+            </div>
+
+            <div class="menu-item" data-view="clock">
+                <span class="icon">🕐</span>
+                <div>
+                    <div>数字时钟</div>
+                    <div class="desc">上下结构 · 秒数独立</div>
+                </div>
+            </div>
+
+            <div class="menu-close-btn" id="menuClose">取消</div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        //  1. 核心状态
+        // ============================================================
+        const CONFIG = { work: 25 * 60 };
+        let currentSeconds = CONFIG.work;
+        let totalSeconds = CONFIG.work;
+        let isRunning = false;
+        let isWork = true;
+        let timerInterval = null;
+        let completedCount = 0;
+        let selectedMinutes = 25;
+
+        // DOM 引用
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const countDisplay = document.getElementById('countDisplay');
+        const minuteLabel = document.getElementById('minuteLabel');
+        const plusBtn = document.getElementById('plusBtn');
+        const minusBtn = document.getElementById('minusBtn');
+        const presetBtns = document.querySelectorAll('.preset-btn');
+        const menuToggle = document.getElementById('menuToggle');
+        const menuOverlay = document.getElementById('menuOverlay');
+        const menuClose = document.getElementById('menuClose');
+        const menuItems = document.querySelectorAll('.menu-item[data-view]');
+        const tomatoView = document.getElementById('tomatoView');
+        const clockView = document.getElementById('clockView');
+        const appCard = document.getElementById('appCard');
+        const headerTitle = document.getElementById('headerTitle');
+        const statusDot = document.getElementById('statusDot');
+
+        const clockHM = document.getElementById('clockHM');
+        const clockSec = document.getElementById('clockSec');
+        const clockDate = document.getElementById('clockDate');
+
+        // ============================================================
+        //  2. 番茄钟逻辑 (不变)
+        // ============================================================
+        function loadStats() {
+            const saved = localStorage.getItem('tomato_count');
+            if (saved !== null) { completedCount = parseInt(saved, 10);
+                countDisplay.textContent = completedCount; }
+        }
+        loadStats();
+
+        function saveStats() { localStorage.setItem('tomato_count', completedCount.toString());
+            countDisplay.textContent = completedCount; }
+
+        function setMinutes(min) {
+            if (isRunning) return;
+            selectedMinutes = Math.max(1, Math.min(99, min));
+            totalSeconds = selectedMinutes * 60;
+            currentSeconds = totalSeconds;
+            minuteLabel.textContent = selectedMinutes + ' 分';
+            presetBtns.forEach(btn => {
+                btn.classList.toggle('active', parseInt(btn.dataset.min) === selectedMinutes);
+            });
+            if (!isWork) { isWork = true;
+                appCard.classList.remove('break-mode'); }
+            updateUI();
+        }
+
+        function drawCircle(progress) {
+            const w = canvas.width,
+                h = canvas.height,
+                r = 110,
+                cx = w / 2,
+                cy = h / 2,
+                lw = 10;
+            ctx.clearRect(0, 0, w, h);
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+            ctx.lineWidth = lw;
+            ctx.stroke();
+            const sa = -Math.PI / 2;
+            const ea = sa + (Math.PI * 2 * Math.min(progress, 1));
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, sa, ea);
+            ctx.strokeStyle = progress < 0.2 ? '#ef4444' : '#4CAF50';
+            ctx.lineWidth = lw;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+            ctx.shadowColor = '#4CAF50';
+            ctx.shadowBlur = 20;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
+
+        function updateUI() {
+            const mins = Math.floor(currentSeconds / 60);
+            const secs = currentSeconds % 60;
+            timerDisplay.textContent = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+            const progress = totalSeconds > 0 ? currentSeconds / totalSeconds : 0;
+            drawCircle(progress);
+            if (isRunning) {
+                statusDot.style.background = '#4ade80';
+                statusDot.style.boxShadow = '0 0 16px rgba(74,222,128,0.6)';
+            } else {
+                statusDot.style.background = 'rgba(255,255,255,0.1)';
+                statusDot.style.boxShadow = 'none';
+            }
+        }
+
+        function switchPhase() {
+            if (isWork) {
+                completedCount += 1;
+                saveStats();
+                if (Notification.permission === 'granted') new Notification('🍅 专注结束', { body: '休息一下吧！' });
+                isRunning = false;
+                if (timerInterval) { clearInterval(timerInterval);
+                    timerInterval = null; }
+                startBtn.textContent = '▶ 开始';
+                totalSeconds = selectedMinutes * 60;
+                currentSeconds = totalSeconds;
+                isWork = true;
+                updateUI();
+                return;
+            }
+        }
+
+        function tick() {
+            if (currentSeconds <= 0) {
+                switchPhase();
+                return;
+            }
+            currentSeconds -= 1;
+            updateUI();
+        }
+
+        function toggleTimer() {
+            if (Notification.permission === 'default') Notification.requestPermission();
+
+            if (isRunning) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+                isRunning = false;
+                startBtn.textContent = '▶ 继续';
+                statusDot.style.background = 'rgba(255,255,255,0.1)';
+                updateUI();
+                return;
+            }
+
+            if (currentSeconds <= 0) {
+                currentSeconds = totalSeconds;
+            }
+            isRunning = true;
+            startBtn.textContent = '⏸ 暂停';
+            timerInterval = setInterval(tick, 1000);
+            updateUI();
+        }
+
+        function resetTimer() {
+            if (timerInterval) { clearInterval(timerInterval);
+                timerInterval = null; }
+            isRunning = false;
+            startBtn.textContent = '▶ 开始';
+            isWork = true;
+            totalSeconds = selectedMinutes * 60;
+            currentSeconds = totalSeconds;
+            appCard.classList.remove('break-mode');
+            statusDot.style.background = 'rgba(255,255,255,0.1)';
+            updateUI();
+        }
+
+        // ============================================================
+        //  3. 时钟逻辑 (不变)
+        // ============================================================
+        function updateClock() {
+            const now = new Date();
+            const h = String(now.getHours()).padStart(2, '0');
+            const m = String(now.getMinutes()).padStart(2, '0');
+            const s = String(now.getSeconds()).padStart(2, '0');
+            clockHM.textContent = h + ':' + m;
+            clockSec.textContent = s;
+
+            const days = ['日', '一', '二', '三', '四', '五', '六'];
+            const d = String(now.getDate()).padStart(2, '0');
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            clockDate.textContent = `${now.getFullYear()}.${month}.${d} 周${days[now.getDay()]}`;
+        }
+        updateClock();
+        setInterval(updateClock, 1000);
+
+        // ============================================================
+        //  4. 视图切换 (不变)
+        // ============================================================
+        function switchView(viewName) {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+                isRunning = false;
+                startBtn.textContent = '▶ 开始';
+            }
+
+            if (viewName === 'tomato') {
+                tomatoView.classList.add('active');
+                clockView.classList.remove('active');
+                appCard.classList.remove('clock-mode');
+                appCard.classList.add('tomato-mode');
+                headerTitle.textContent = '🍅 专注工作台';
+                updateUI();
+            } else {
+                clockView.classList.add('active');
+                tomatoView.classList.remove('active');
+                appCard.classList.remove('tomato-mode');
+                appCard.classList.add('clock-mode');
+                headerTitle.textContent = '🕐 数字时钟';
+                updateClock();
+            }
+            menuOverlay.classList.remove('open');
+        }
+
+        // ============================================================
+        //  5. 🆕 可拖动悬浮按钮 (修复点击/拖动冲突)
+        // ============================================================
+        (function makeDraggable() {
+            const btn = document.getElementById('menuToggle');
+            const card = document.getElementById('appCard');
+            let isDragging = false;
+            let startX, startY, origX, origY;
+            let hasMoved = false; // 关键：记录是否真正拖动过
+
+            function getBtnPosition() {
+                const rect = btn.getBoundingClientRect();
+                const cardRect = card.getBoundingClientRect();
+                return {
+                    left: rect.left - cardRect.left,
+                    top: rect.top - cardRect.top
+                };
+            }
+
+            function setBtnPosition(left, top) {
+                const cardRect = card.getBoundingClientRect();
+                const btnW = btn.offsetWidth || 52;
+                const btnH = btn.offsetHeight || 52;
+                const maxX = cardRect.width - btnW - 10;
+                const maxY = cardRect.height - btnH - 10;
+                left = Math.max(10, Math.min(maxX, left));
+                top = Math.max(10, Math.min(maxY, top));
+                btn.style.left = left + 'px';
+                btn.style.top = top + 'px';
+                btn.style.right = 'auto';
+                btn.style.bottom = 'auto';
+            }
+
+            function onStart(e) {
+                e.preventDefault();
+                isDragging = true;
+                hasMoved = false; // 重置移动标记
+                const touch = e.touches ? e.touches[0] : e;
+                const pos = getBtnPosition();
+                startX = touch.clientX;
+                startY = touch.clientY;
+                origX = pos.left;
+                origY = pos.top;
+                btn.style.cursor = 'grabbing';
+                btn.style.transition = 'none';
+            }
+
+            function onMove(e) {
+                if (!isDragging) return;
+                e.preventDefault();
+                const touch = e.touches ? e.touches[0] : e;
+                const dx = touch.clientX - startX;
+                const dy = touch.clientY - startY;
+                // 如果移动距离大于 8px，标记为已拖动
+                if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+                    hasMoved = true;
+                }
+                setBtnPosition(origX + dx, origY + dy);
+            }
+
+            function onEnd(e) {
+                if (!isDragging) return;
+                isDragging = false;
+                btn.style.cursor = 'grab';
+                btn.style.transition = 'box-shadow 0.2s';
+
+                // ★★★ 关键修复：只有【没有移动】时才触发点击 ★★★
+                if (!hasMoved) {
+                    // 这是一个纯粹的点击（没有拖动），打开菜单
+                    menuOverlay.classList.toggle('open');
+                }
+                // 如果 hasMoved === true，说明是拖动，什么都不做（不弹菜单）
+                hasMoved = false;
+            }
+
+            // 注册事件 (同时支持鼠标和触摸)
+            btn.addEventListener('mousedown', onStart);
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onEnd);
+
+            btn.addEventListener('touchstart', onStart, { passive: false });
+            window.addEventListener('touchmove', onMove, { passive: false });
+            window.addEventListener('touchend', onEnd, { passive: false });
+
+            // 初始化位置：右上角
+            setTimeout(() => {
+                setBtnPosition(340, 52);
+            }, 50);
+        })();
+
+        // ============================================================
+        //  6. 菜单事件绑定 (简化)
+        // ============================================================
+        // 注意：菜单的打开/关闭已由拖拽逻辑内部的点击判断控制
+        // 这里只需要处理遮罩点击关闭、菜单项切换等
+
+        menuOverlay.addEventListener('click', (e) => {
+            if (e.target === menuOverlay) menuOverlay.classList.remove('open');
+        });
+
+        menuClose.addEventListener('click', () => {
+            menuOverlay.classList.remove('open');
+        });
+
+        menuItems.forEach(item => {
+            item.addEventListener('click', function() {
+                switchView(this.dataset.view);
+            });
+        });
+
+        // 原有的按钮事件
+        startBtn.addEventListener('click', toggleTimer);
+        resetBtn.addEventListener('click', resetTimer);
+
+        plusBtn.addEventListener('click', () => { setMinutes(selectedMinutes + 1); });
+        minusBtn.addEventListener('click', () => { setMinutes(selectedMinutes - 1); });
+
+        presetBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                setMinutes(parseInt(this.dataset.min));
+            });
+        });
+
+        // --- 初始化 ---
+        setMinutes(25);
+        updateUI();
+        switchView('tomato');
+
+        window.addEventListener('beforeunload', () => {
+            if (timerInterval) clearInterval(timerInterval);
+        });
+
+        console.log('🍅 方形番茄钟已启动！拖动/点击已分离：轻点打开菜单，拖动不触发。');
+    </script>
+</body>
+</html>
